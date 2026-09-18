@@ -1,0 +1,16 @@
+[project]
+name = "free-ai-model-radar"
+version = "0.1.0"
+description = "Incremental discovery and validation of free AI API models"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.scripts]
+free-ai-radar = "free_ai_model_radar.cli:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
