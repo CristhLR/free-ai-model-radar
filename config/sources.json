@@ -1,20 +1,224 @@
 [
   {
     "id": "freellmapi-latest-release",
+    "provider": "freellmapi",
     "url": "https://api.github.com/repos/tashfeenahmed/freellmapi/releases/latest",
     "kind": "release",
-    "priority": "high"
+    "priority": "high",
+    "authority": "official",
+    "base_interval_hours": 12,
+    "max_interval_hours": 72
+  },
+  {
+    "id": "openrouter-models-api",
+    "provider": "openrouter",
+    "url": "https://openrouter.ai/api/v1/models",
+    "kind": "models-api",
+    "priority": "critical",
+    "authority": "official",
+    "base_interval_hours": 6,
+    "max_interval_hours": 24
+  },
+  {
+    "id": "openrouter-free-models",
+    "provider": "openrouter",
+    "url": "https://openrouter.ai/collections/free-models",
+    "kind": "free-catalog",
+    "priority": "high",
+    "authority": "official",
+    "base_interval_hours": 12,
+    "max_interval_hours": 72
   },
   {
     "id": "groq-supported-models",
+    "provider": "groq",
     "url": "https://console.groq.com/docs/models",
     "kind": "models-doc",
-    "priority": "high"
+    "priority": "high",
+    "authority": "official",
+    "base_interval_hours": 12,
+    "max_interval_hours": 168
+  },
+  {
+    "id": "groq-rate-limits",
+    "provider": "groq",
+    "url": "https://console.groq.com/docs/rate-limits",
+    "kind": "rate-limits",
+    "priority": "medium",
+    "authority": "official",
+    "base_interval_hours": 24,
+    "max_interval_hours": 336
+  },
+  {
+    "id": "groq-deprecations",
+    "provider": "groq",
+    "url": "https://console.groq.com/docs/deprecations",
+    "kind": "deprecations",
+    "priority": "high",
+    "authority": "official",
+    "base_interval_hours": 12,
+    "max_interval_hours": 168
+  },
+  {
+    "id": "google-gemini-models",
+    "provider": "google",
+    "url": "https://ai.google.dev/gemini-api/docs/models",
+    "kind": "models-doc",
+    "priority": "high",
+    "authority": "official",
+    "base_interval_hours": 12,
+    "max_interval_hours": 168
   },
   {
     "id": "google-gemini-pricing",
+    "provider": "google",
     "url": "https://ai.google.dev/gemini-api/docs/pricing",
     "kind": "pricing",
-    "priority": "high"
+    "priority": "critical",
+    "authority": "official",
+    "base_interval_hours": 24,
+    "max_interval_hours": 336,
+    "expected_change_at": "2027-01-01T00:00:00Z",
+    "preflight_hours": 168
+  },
+  {
+    "id": "google-gemini-rate-limits",
+    "provider": "google",
+    "url": "https://ai.google.dev/gemini-api/docs/rate-limits",
+    "kind": "rate-limits",
+    "priority": "high",
+    "authority": "official",
+    "base_interval_hours": 24,
+    "max_interval_hours": 168
+  },
+  {
+    "id": "google-gemini-changelog",
+    "provider": "google",
+    "url": "https://ai.google.dev/gemini-api/docs/changelog",
+    "kind": "changelog",
+    "priority": "high",
+    "authority": "official",
+    "base_interval_hours": 6,
+    "max_interval_hours": 72
+  },
+  {
+    "id": "cloudflare-workers-ai-models",
+    "provider": "cloudflare",
+    "url": "https://developers.cloudflare.com/workers-ai/models/",
+    "kind": "models-doc",
+    "priority": "high",
+    "authority": "official",
+    "base_interval_hours": 12,
+    "max_interval_hours": 168
+  },
+  {
+    "id": "cloudflare-workers-ai-pricing",
+    "provider": "cloudflare",
+    "url": "https://developers.cloudflare.com/workers-ai/platform/pricing/",
+    "kind": "pricing",
+    "priority": "critical",
+    "authority": "official",
+    "base_interval_hours": 24,
+    "max_interval_hours": 336
+  },
+  {
+    "id": "cloudflare-workers-ai-limits",
+    "provider": "cloudflare",
+    "url": "https://developers.cloudflare.com/workers-ai/platform/limits/",
+    "kind": "rate-limits",
+    "priority": "high",
+    "authority": "official",
+    "base_interval_hours": 24,
+    "max_interval_hours": 168
+  },
+  {
+    "id": "cloudflare-workers-ai-changelog",
+    "provider": "cloudflare",
+    "url": "https://developers.cloudflare.com/changelog/product/workers-ai/",
+    "kind": "changelog",
+    "priority": "high",
+    "authority": "official",
+    "base_interval_hours": 6,
+    "max_interval_hours": 72
+  },
+  {
+    "id": "cohere-models",
+    "provider": "cohere",
+    "url": "https://docs.cohere.com/docs/models",
+    "kind": "models-doc",
+    "priority": "high",
+    "authority": "official",
+    "base_interval_hours": 24,
+    "max_interval_hours": 168
+  },
+  {
+    "id": "cohere-rate-limits",
+    "provider": "cohere",
+    "url": "https://docs.cohere.com/docs/rate-limits",
+    "kind": "rate-limits",
+    "priority": "high",
+    "authority": "official",
+    "base_interval_hours": 24,
+    "max_interval_hours": 336
+  },
+  {
+    "id": "cohere-deprecations",
+    "provider": "cohere",
+    "url": "https://docs.cohere.com/docs/deprecations",
+    "kind": "deprecations",
+    "priority": "high",
+    "authority": "official",
+    "base_interval_hours": 12,
+    "max_interval_hours": 168
+  },
+  {
+    "id": "huggingface-inference-pricing",
+    "provider": "huggingface",
+    "url": "https://huggingface.co/docs/inference-providers/pricing",
+    "kind": "pricing",
+    "priority": "high",
+    "authority": "official",
+    "base_interval_hours": 24,
+    "max_interval_hours": 336
+  },
+  {
+    "id": "cerebras-models",
+    "provider": "cerebras",
+    "url": "https://inference-docs.cerebras.ai/models/overview",
+    "kind": "models-doc",
+    "priority": "high",
+    "authority": "official",
+    "base_interval_hours": 24,
+    "max_interval_hours": 168
+  },
+  {
+    "id": "cerebras-rate-limits",
+    "provider": "cerebras",
+    "url": "https://inference-docs.cerebras.ai/support/rate-limits",
+    "kind": "rate-limits",
+    "priority": "high",
+    "authority": "official",
+    "base_interval_hours": 24,
+    "max_interval_hours": 168
+  },
+  {
+    "id": "cerebras-pricing",
+    "provider": "cerebras",
+    "url": "https://www.cerebras.ai/pricing",
+    "kind": "pricing",
+    "priority": "medium",
+    "authority": "official",
+    "base_interval_hours": 48,
+    "max_interval_hours": 336
+  },
+  {
+    "id": "nvidia-build-models",
+    "provider": "nvidia",
+    "url": "https://build.nvidia.com/models",
+    "kind": "free-catalog",
+    "priority": "critical",
+    "authority": "official",
+    "base_interval_hours": 6,
+    "max_interval_hours": 48
   }
 ]

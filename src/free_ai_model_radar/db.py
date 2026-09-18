@@ -3,6 +3,7 @@ from __future__ import annotations
 import json, sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
+
 from .domain import CandidateModel
 
 SCHEMA = """
@@ -21,14 +22,47 @@ CREATE TABLE IF NOT EXISTS source_checks (
   source_id TEXT PRIMARY KEY, url TEXT NOT NULL,
   etag TEXT, last_modified TEXT, content_hash TEXT,
   last_checked TEXT NOT NULL, last_changed TEXT,
-  status_code INTEGER, error TEXT
+  status_code INTEGER, error TEXT,
+  next_check_at TEXT, expected_change_at TEXT,
+  stable_runs INTEGER NOT NULL DEFAULT 0,
+  consecutive_failures INTEGER NOT NULL DEFAULT 0,
+  check_interval_hours REAL, volatility_score REAL NOT NULL DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS api_checks (
+  provider TEXT NOT NULL, model_id TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'unknown',
+  last_verified TEXT, expected_change_at TEXT, valid_until TEXT,
+  next_check_at TEXT, check_interval_hours REAL,
+  stable_runs INTEGER NOT NULL DEFAULT 0,
+  consecutive_failures INTEGER NOT NULL DEFAULT 0,
+  error TEXT,
+  PRIMARY KEY(provider, model_id)
 );
 """
 
+_SOURCE_COLUMNS = {
+    "next_check_at": "TEXT",
+    "expected_change_at": "TEXT",
+    "stable_runs": "INTEGER NOT NULL DEFAULT 0",
+    "consecutive_failures": "INTEGER NOT NULL DEFAULT 0",
+    "check_interval_hours": "REAL",
+    "volatility_score": "REAL NOT NULL DEFAULT 0",
+}
+
+def _ensure_columns(con: sqlite3.Connection, table: str, columns: dict[str, str]) -> None:
+    existing = {row[1] for row in con.execute(f"PRAGMA table_info({table})")}
+    for name, definition in columns.items():
+        if name not in existing:
+            con.execute(f"ALTER TABLE {table} ADD COLUMN {name} {definition}")
+
 def connect(path: Path) -> sqlite3.Connection:
     path.parent.mkdir(parents=True, exist_ok=True)
-    con = sqlite3.connect(path)
+    con = sqlite3.connect(path, timeout=30)
+    con.execute("PRAGMA journal_mode=WAL")
+    con.execute("PRAGMA busy_timeout=30000")
     con.executescript(SCHEMA)
+    _ensure_columns(con, "source_checks", _SOURCE_COLUMNS)
+    con.commit()
     return con
 
 def sync_provider(con: sqlite3.Connection, provider: str, items: list[CandidateModel]) -> dict[str, list[str]]:

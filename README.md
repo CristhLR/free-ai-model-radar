@@ -5,18 +5,38 @@ Incremental radar for free AI API models used alongside FreeLLMAPI and DeepSeek 
 ## Scope
 This project discovers, verifies and tracks free model/API changes. It does **not** reimplement FreeLLMAPI routing, failover, quota tracking or its OpenAI-compatible gateway.
 
-## First MVP
-- SQLite state/history
-- official-source adapters
-- free-only classification
+## Current MVP
+- SQLite model, event, source-check and API-check state
+- OpenRouter official zero-price model scanner
+- 22 official monitoring signals across major providers
 - NEW / CHANGED / REMOVED diffs
-- OpenRouter official catalog adapter
+- ETag / Last-Modified conditional requests
+- normalized HTML fingerprints to suppress dynamic-page noise
+- adaptive per-source scheduling with backoff as sources remain stable
+- expected-change scheduling for known future changes
+- separate expensive API-verification schedule
+- bounded concurrent source checks
+- Windows hourly runner that executes only due checks
+- JEV disabled by default
 
-## Run
+## Commands
 ```powershell
 python -m src.free_ai_model_radar.cli scan openrouter
 python -m src.free_ai_model_radar.cli sources
+python -m src.free_ai_model_radar.cli schedule
+python -m src.free_ai_model_radar.cli watch
 python -m src.free_ai_model_radar.cli watch all
+python -m src.free_ai_model_radar.cli api-schedule
 ```
 
-The watcher uses conditional requests (ETag / Last-Modified when supported) and normalized content fingerprints to avoid reporting unchanged pages. No API keys are required for the initial OpenRouter catalog scan or source watches.
+`watch` checks only sources whose `next_check_at` is due. `watch all` forces all configured sources.
+
+## Windows scheduler
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\install_windows_task.ps1
+```
+
+This creates the hourly `FreeAIModelRadar` task. The task itself is cheap: the internal scheduler skips every source that is not due.
+
+## Safety
+`FREE_ONLY=true` is the default policy. JEV remains opt-in with `USE_JEV=false`. Secrets and local SQLite/log files are ignored by Git.

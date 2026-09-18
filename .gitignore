@@ -6,5 +6,6 @@ __pycache__/
 !.env.example
 data/*.db
 data/*.db-*
+data/*.log
 .pytest_cache/
 .coverage
