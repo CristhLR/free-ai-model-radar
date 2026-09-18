@@ -15,6 +15,8 @@ This project discovers, verifies and tracks free model/API changes. It does **no
 ## Run
 ```powershell
 python -m src.free_ai_model_radar.cli scan openrouter
+python -m src.free_ai_model_radar.cli sources
+python -m src.free_ai_model_radar.cli watch all
 ```
 
-No API keys are required for the initial OpenRouter catalog scan.
+The watcher uses conditional requests (ETag / Last-Modified when supported) and normalized content fingerprints to avoid reporting unchanged pages. No API keys are required for the initial OpenRouter catalog scan or source watches.

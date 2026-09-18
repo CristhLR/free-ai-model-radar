@@ -1,0 +1,20 @@
+[
+  {
+    "id": "freellmapi-latest-release",
+    "url": "https://api.github.com/repos/tashfeenahmed/freellmapi/releases/latest",
+    "kind": "release",
+    "priority": "high"
+  },
+  {
+    "id": "groq-supported-models",
+    "url": "https://console.groq.com/docs/models",
+    "kind": "models-doc",
+    "priority": "high"
+  },
+  {
+    "id": "google-gemini-pricing",
+    "url": "https://ai.google.dev/gemini-api/docs/pricing",
+    "kind": "pricing",
+    "priority": "high"
+  }
+]

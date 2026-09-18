@@ -17,6 +17,12 @@ CREATE TABLE IF NOT EXISTS events (
   id INTEGER PRIMARY KEY, ts TEXT NOT NULL, kind TEXT NOT NULL,
   provider TEXT NOT NULL, model_id TEXT NOT NULL, details_json TEXT NOT NULL DEFAULT '{}'
 );
+CREATE TABLE IF NOT EXISTS source_checks (
+  source_id TEXT PRIMARY KEY, url TEXT NOT NULL,
+  etag TEXT, last_modified TEXT, content_hash TEXT,
+  last_checked TEXT NOT NULL, last_changed TEXT,
+  status_code INTEGER, error TEXT
+);
 """
 
 def connect(path: Path) -> sqlite3.Connection:
