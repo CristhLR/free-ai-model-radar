@@ -1,0 +1,10 @@
+{
+  "typhoon": "https://playground.opentyphoon.ai/auth/sign-in",
+  "zai-glm": "https://z.ai/manage-apikey/apikey-list",
+  "cloudflare-workers-ai": "https://dash.cloudflare.com/",
+  "google-gemini": "https://aistudio.google.com/apikey",
+  "ollama-cloud": "https://ollama.com/settings/keys",
+  "openrouter": "https://openrouter.ai/settings/keys",
+  "sambanova": "https://cloud.sambanova.ai/apis",
+  "groq": "https://console.groq.com/keys"
+}

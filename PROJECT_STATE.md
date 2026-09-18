@@ -20,7 +20,11 @@ Discover and validate changing free AI API models, then feed useful verified cha
 - Expensive API checks can be deferred until a known change/preflight window.
 - Bounded concurrency (6 workers); full 22-source validation completed in ~9 seconds with zero source failures.
 - Windows task FreeAIModelRadar runs hourly; internal scheduler skips non-due sources.
-- 9 unit tests passing.
+- 13 unit tests passing.
+- Five discovery catalogs integrated: free-llm-api-hub, free-ai-api-tiers, free-llm-services, awesome-freellm-apis, and DaBinBinah/free-LLM (China-focused replacement for the dead cheahjs source).
+- Catalog evidence is stored separately; secondary sources fill missing fields but never overwrite known values. Conflicts are recorded for later official verification.
+- Current real import: 166 catalog records -> 99 unique provider candidates, zero exact-name duplicates, 13 flagged conflicts.
+- Registration queue and curated registration-link overrides are working.
 
 ## Verified behavior
 - Immediately after a full run, a normal due-only run returns [] and performs no unnecessary source checks.
@@ -28,8 +32,7 @@ Discover and validate changing free AI API models, then feed useful verified cha
 - JEV has not been used.
 
 ## Next
-1. Add provider-specific extractors that turn changed docs into structured facts (free tier, quotas, expiry/deprecation).
-2. Add confidence/evidence scoring and candidate lifecycle gates.
-3. Add FreeLLMAPI declarative-config exporter for verified gaps only.
-4. Add community discovery feeds; keep them discovery-only until official verification.
-5. Add optional JEV for ambiguous/new-provider research after the cheap pipeline filters candidates.
+1. Present only the highest-value registration actions to the user and collect provider keys locally.
+2. Validate each obtained key/model with a cheap health check before activation.
+3. Export verified active providers into FreeLLMAPI and point DeepSeek Harness at its single /v1 endpoint.
+4. Keep JEV optional and disabled until explicitly authorized; use it only for ambiguous cases after deterministic filtering.

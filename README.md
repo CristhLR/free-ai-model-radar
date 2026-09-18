@@ -17,6 +17,8 @@ This project discovers, verifies and tracks free model/API changes. It does **no
 - separate expensive API-verification schedule
 - bounded concurrent source checks
 - Windows hourly runner that executes only due checks
+- 5 discovery catalogs merged with deduplication and conflict tracking
+- registration/action queue with official-link overrides
 - JEV disabled by default
 
 ## Commands
@@ -27,6 +29,9 @@ python -m src.free_ai_model_radar.cli schedule
 python -m src.free_ai_model_radar.cli watch
 python -m src.free_ai_model_radar.cli watch all
 python -m src.free_ai_model_radar.cli api-schedule
+python -m src.free_ai_model_radar.cli discover-catalogs
+python -m src.free_ai_model_radar.cli prepare-actions
+python -m src.free_ai_model_radar.cli registration-plan --limit 10
 ```
 
 `watch` checks only sources whose `next_check_at` is due. `watch all` forces all configured sources.

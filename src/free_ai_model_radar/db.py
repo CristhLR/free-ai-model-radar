@@ -38,6 +38,52 @@ CREATE TABLE IF NOT EXISTS api_checks (
   error TEXT,
   PRIMARY KEY(provider, model_id)
 );
+CREATE TABLE IF NOT EXISTS provider_candidates (
+  slug TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'discovered',
+  source_url TEXT NOT NULL,
+  docs_url TEXT,
+  registration_url TEXT,
+  api_base_url TEXT,
+  env_key TEXT,
+  free_type TEXT,
+  free_tier TEXT,
+  expires TEXT,
+  phone_required INTEGER,
+  card_required INTEGER,
+  commercial_ok INTEGER,
+  openai_compatible INTEGER,
+  verified_by_source INTEGER NOT NULL DEFAULT 0,
+  source_last_verified TEXT,
+  evidence_level TEXT NOT NULL DEFAULT 'community',
+  first_seen TEXT NOT NULL,
+  last_seen TEXT NOT NULL,
+  last_checked TEXT,
+  notes TEXT,
+  metadata_json TEXT NOT NULL DEFAULT '{}'
+);
+CREATE TABLE IF NOT EXISTS user_actions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  provider_slug TEXT NOT NULL,
+  action_type TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending',
+  action_url TEXT,
+  message TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  completed_at TEXT,
+  UNIQUE(provider_slug, action_type, status)
+);
+CREATE TABLE IF NOT EXISTS provider_catalog_evidence (
+  source_id TEXT NOT NULL,
+  source_provider_id TEXT NOT NULL,
+  provider_slug TEXT NOT NULL,
+  provider_name TEXT NOT NULL,
+  source_url TEXT NOT NULL,
+  observed_at TEXT NOT NULL,
+  payload_json TEXT NOT NULL DEFAULT '{}',
+  PRIMARY KEY(source_id, source_provider_id)
+);
 """
 
 _SOURCE_COLUMNS = {
