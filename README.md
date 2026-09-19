@@ -19,6 +19,10 @@ This project discovers, verifies and tracks free model/API changes. It does **no
 - Windows hourly runner that executes only due checks
 - 5 discovery catalogs merged with deduplication and conflict tracking
 - registration/action queue with official-link overrides
+- local key-intake page; provider keys stay in ignored `.env.local`
+- automatic FREE_ONLY sync into local FreeLLMAPI
+- DeepSeek Harness connected once to `http://127.0.0.1:3001/v1`
+- Kilo keyless free route verified end-to-end
 - JEV disabled by default
 
 ## Commands
@@ -32,6 +36,8 @@ python -m src.free_ai_model_radar.cli api-schedule
 python -m src.free_ai_model_radar.cli discover-catalogs
 python -m src.free_ai_model_radar.cli prepare-actions
 python -m src.free_ai_model_radar.cli registration-plan --limit 10
+python -m src.free_ai_model_radar.key_intake
+python -m src.free_ai_model_radar.freellmapi_sync
 ```
 
 `watch` checks only sources whose `next_check_at` is due. `watch all` forces all configured sources.

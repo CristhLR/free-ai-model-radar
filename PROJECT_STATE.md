@@ -25,14 +25,20 @@ Discover and validate changing free AI API models, then feed useful verified cha
 - Catalog evidence is stored separately; secondary sources fill missing fields but never overwrite known values. Conflicts are recorded for later official verification.
 - Current real import: 166 catalog records -> 99 unique provider candidates, zero exact-name duplicates, 13 flagged conflicts.
 - Registration queue and curated registration-link overrides are working.
+- 13 provider accounts were detected as registered from browser navigation state; account actions were advanced automatically.
+- FreeLLMAPI is installed locally at `C:\\Users\\cdavi\\freellmapi`, built from the upstream project, and listens only on `127.0.0.1:3001`.
+- Kilo Gateway is official-doc + live-test verified as a keyless free route and is active in FreeLLMAPI.
+- DeepSeek Harness is configured for `freellmapi/auto`; end-to-end headless tests returned exit code 0 through FreeLLMAPI/Kilo.
+- Local key-intake UI stores provider keys only in ignored `.env.local` and can auto-sync safe native providers into FreeLLMAPI.
+- User-level Windows Startup entry launches FreeLLMAPI sync at login without administrator privileges.
 
 ## Verified behavior
 - Immediately after a full run, a normal due-only run returns [] and performs no unnecessary source checks.
 - Scheduled task manual run returned exit code 0.
-- JEV has not been used.
+- No successful JEV inference has been used. One explicitly authorized direct TypeSafe attempt returned HTTP 401; default remains disabled.
 
 ## Next
-1. Present only the highest-value registration actions to the user and collect provider keys locally.
-2. Validate each obtained key/model with a cheap health check before activation.
-3. Export verified active providers into FreeLLMAPI and point DeepSeek Harness at its single /v1 endpoint.
-4. Keep JEV optional and disabled until explicitly authorized; use it only for ambiguous cases after deterministic filtering.
+1. User pastes keys from already-registered providers into the local key-intake page.
+2. Auto-sync only FREE_ONLY-safe native providers into FreeLLMAPI and health-check them.
+3. Expand provider mappings only when a supported/free provider is verified; do not build custom adapters yet.
+4. Keep JEV optional and disabled by default; use it only when explicitly authorized for an ambiguous decision.
