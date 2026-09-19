@@ -25,9 +25,16 @@ PLATFORM_MAP = {
     "cloudflare-workers-ai": ("cloudflare", "CLOUDFLARE_API_TOKEN"),
     "cohere": ("cohere", "COHERE_API_KEY"),
     "zai-glm": ("zhipu", "ZAI_API_KEY"),
+    "huggingface": ("huggingface", "HF_TOKEN"),
+    "siliconflow": ("siliconflow", "SILICONFLOW_API_KEY"),
+    "nvidia-nim": ("nvidia", "NVIDIA_API_KEY"),
 }
 
-SAFE_FREE_TYPES = {"perpetual", "renewing-quota", "recurring-credit", "ongoing"}
+SAFE_FREE_TYPES = {
+    "perpetual", "renewing-quota", "recurring-credit", "ongoing",
+    "trial-credit", "free_quota_trial", "quota_with_expiry",
+    "new_user_trial", "limited_time_free", "free_points",
+}
 def _load_env() -> dict[str, str]:
     data: dict[str, str] = {}
     if not SECRET_FILE.exists():

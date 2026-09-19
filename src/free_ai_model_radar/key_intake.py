@@ -32,6 +32,9 @@ DIRECT_KEY_URLS = {
     "cloudflare-workers-ai": "https://dash.cloudflare.com/profile/api-tokens",
     "cartesia": "https://play.cartesia.ai/dashboard",
     "elevenlabs": "https://elevenlabs.io/app/settings/api-keys",
+    "huggingface": "https://huggingface.co/settings/tokens",
+    "siliconflow": "https://cloud.siliconflow.cn/account/ak",
+    "nvidia-nim": "https://build.nvidia.com/settings/api-keys",
 }
 
 
