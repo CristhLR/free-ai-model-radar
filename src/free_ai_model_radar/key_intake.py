@@ -4,6 +4,7 @@ import html
 import os
 import secrets
 import subprocess
+import threading
 import urllib.parse
 import webbrowser
 from datetime import datetime, timezone
@@ -29,13 +30,47 @@ DIRECT_KEY_URLS = {
     "cohere": "https://dashboard.cohere.com/api-keys",
     "zai-glm": "https://z.ai/manage-apikey/apikey-list",
     "alibaba-model-studio": "https://modelstudio.console.alibabacloud.com/ap-southeast-1/settings/workspace",
-    "cloudflare-workers-ai": "https://dash.cloudflare.com/profile/api-tokens",
+    "cloudflare-workers-ai": "https://dash.cloudflare.com/?to=/:account/workers-ai",
     "cartesia": "https://play.cartesia.ai/dashboard",
     "elevenlabs": "https://elevenlabs.io/app/settings/api-keys",
     "huggingface": "https://huggingface.co/settings/tokens",
     "siliconflow": "https://cloud.siliconflow.com/account/ak",
     "nvidia-nim": "https://build.nvidia.com/settings/api-keys",
+    "navyai": "https://api.navy/",
+    "requesty": "https://app.requesty.ai/sign-up",
+    "aion-labs": "https://www.aionlabs.ai/accounts/signup/",
+    "aihorde": "https://aihorde.net/register",
+    "bazaarlink": "https://bazaarlink.ai/login",
 }
+
+EXTRA_PROVIDER_SEEDS = {
+    "navyai": ("NavyAI", "NAVY_API_KEY", "https://api.navy/docs", "https://api.navy/", "https://api.navy/v1", "renewing-quota", "Free plan: 150K tokens/day, 20 RPM; premium models excluded."),
+    "requesty": ("Requesty", "REQUESTY_API_KEY", "https://docs.requesty.ai/", "https://app.requesty.ai/sign-up", "https://router.requesty.ai/v1", "renewing-quota", "Free plan: 200 requests/day on free models; no credit card required."),
+    "aion-labs": ("Aion Labs", "AION_API_KEY", "https://www.aionlabs.ai/docs/", "https://www.aionlabs.ai/accounts/signup/", "https://api.aionlabs.ai/v1", "renewing-quota", "Free tier: daily allowance, 15 RPM and 20K tokens/day; no card required."),
+    "aihorde": ("AI Horde", "AIHORDE_API_KEY", "https://dev.aihorde.net/", "https://aihorde.net/register", "https://oai.aihorde.net/v1", "perpetual", "Volunteer-run free service; registered key gets higher priority than anonymous access."),
+    "bazaarlink": ("BazaarLink", "BAZAARLINK_API_KEY", "https://bazaarlink.ai/en/docs", "https://bazaarlink.ai/login", "https://api.bazaarlink.ai/v1", "renewing-quota", "Free tier: 10 RPM and 50 requests/day on currently free models; no card required."),
+}
+
+
+def _ensure_extra_providers() -> None:
+    now = datetime.now(timezone.utc).isoformat()
+    with connect(DB_PATH) as con:
+        for slug, (name, env_key, docs_url, registration_url, api_base_url, free_type, free_tier) in EXTRA_PROVIDER_SEEDS.items():
+            con.execute("""INSERT INTO provider_candidates(
+                slug,name,status,source_url,docs_url,registration_url,api_base_url,env_key,
+                free_type,free_tier,phone_required,card_required,commercial_ok,openai_compatible,
+                verified_by_source,source_last_verified,evidence_level,first_seen,last_seen,notes,metadata_json
+            ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+            ON CONFLICT(slug) DO UPDATE SET
+                name=excluded.name,status=CASE WHEN provider_candidates.status IN ('key_saved','account_registered') THEN provider_candidates.status ELSE 'account_required' END,
+                docs_url=excluded.docs_url,registration_url=excluded.registration_url,
+                api_base_url=excluded.api_base_url,env_key=excluded.env_key,free_type=excluded.free_type,
+                free_tier=excluded.free_tier,phone_required=0,card_required=0,openai_compatible=1,
+                verified_by_source=1,source_last_verified=excluded.source_last_verified,
+                evidence_level='official',last_seen=excluded.last_seen""",
+                (slug,name,'account_required',docs_url,docs_url,registration_url,api_base_url,env_key,
+                 free_type,free_tier,0,0,1,1,1,now,'official',now,now,'Global/Colombia-friendly candidate verified from official source.','{}'))
+        con.commit()
 
 
 def _load_env() -> dict[str, str]:
@@ -72,6 +107,7 @@ def _save_secret(env_key: str, value: str) -> None:
 
 
 def _providers() -> list[dict]:
+    _ensure_extra_providers()
     saved = _load_env()
     with connect(DB_PATH) as con:
         rows = con.execute(
@@ -122,6 +158,11 @@ def _page(token: str, message: str = "") -> str:
         tier = html.escape(p["free_tier"][:260])
         openai = " · OpenAI-compatible" if p["openai"] else ""
         url = html.escape(p["url"] or "#", quote=True)
+        extra = ""
+        key_label = "2. Pega la key aquí"
+        if p["slug"] == "cloudflare-workers-ai":
+            extra = '<label>2. Account ID</label><input class="key" name="account_id" autocomplete="off" spellcheck="false" required>'
+            key_label = "3. API Token"
         cards.append(f'''<article class="card {cls}">
 <h3>{html.escape(p["name"])}</h3>
 <div class="meta">{html.escape(p["free_type"])}{openai} · <b>{state}</b></div>
@@ -130,7 +171,8 @@ def _page(token: str, message: str = "") -> str:
 <form method="post" action="/save">
 <input type="hidden" name="token" value="{token}">
 <input type="hidden" name="slug" value="{html.escape(p["slug"], quote=True)}">
-<label>2. Pega la key aquí</label>
+{extra}
+<label>{key_label}</label>
 <input class="key" type="password" name="key" autocomplete="off" spellcheck="false" required>
 <button type="submit">Guardar localmente</button>
 </form></article>''')
@@ -146,6 +188,14 @@ def run(port: int = PORT) -> None:
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, fmt, *args):
             return
+
+        def send_panel(self, message: str, status: int = 200):
+            body = _page(token, message).encode("utf-8")
+            self.send_response(status)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Cache-Control", "no-store")
+            self.end_headers()
+            self.wfile.write(body)
 
         def do_GET(self):
             path = urllib.parse.urlparse(self.path)
@@ -174,29 +224,28 @@ def run(port: int = PORT) -> None:
                 return
             slug = form.get("slug", [""])[0]
             key = form.get("key", [""])[0].strip()
+            account_id = form.get("account_id", [""])[0].strip()
             provider = next((p for p in _providers() if p["slug"] == slug), None)
-            if not provider or len(key) < 8:
-                self.send_error(400)
+            if not provider:
+                self.send_panel("Proveedor no reconocido. Recarga el panel e inténtalo de nuevo.")
+                return
+            if slug == "cloudflare-workers-ai":
+                if len(account_id) < 16:
+                    self.send_panel("Cloudflare: falta el Account ID o parece incompleto.")
+                    return
+                if len(key) < 8:
+                    self.send_panel("Cloudflare: falta el API Token o parece incompleto.")
+                    return
+                key = f"{account_id}:{key}"
+            elif len(key) < 8:
+                self.send_panel(f"{provider['name']}: la key parece incompleta.")
                 return
             _save_secret(provider["env_key"], key)
             _mark_saved(slug)
-            sync = restart_freellmapi()
-            if sync.get("ok"):
-                message = (
-                    f"{provider['name']}: key guardada y FreeLLMAPI actualizado "
-                    f"con {sync.get('count', 0)} proveedor(es)."
-                )
-            else:
-                message = (
-                    f"{provider['name']}: key guardada. FreeLLMAPI no pudo reiniciarse: "
-                    f"{sync.get('error', 'error desconocido')}"
-                )
-            body = _page(token, message).encode("utf-8")
-            self.send_response(200)
-            self.send_header("Content-Type", "text/html; charset=utf-8")
-            self.send_header("Cache-Control", "no-store")
-            self.end_headers()
-            self.wfile.write(body)
+            threading.Thread(target=restart_freellmapi, daemon=True).start()
+            self.send_panel(
+                f"{provider['name']}: key guardada localmente. FreeLLMAPI se está actualizando en segundo plano."
+            )
 
     url = f"http://{HOST}:{port}/?token={token}"
     print("KEY_INTAKE_READY", url, flush=True)

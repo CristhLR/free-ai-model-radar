@@ -28,6 +28,11 @@ PLATFORM_MAP = {
     "huggingface": ("huggingface", "HF_TOKEN"),
     "siliconflow": ("siliconflow", "SILICONFLOW_API_KEY"),
     "nvidia-nim": ("nvidia", "NVIDIA_API_KEY"),
+    "navyai": ("navy", "NAVY_API_KEY"),
+    "requesty": ("requesty", "REQUESTY_API_KEY"),
+    "aion-labs": ("aion", "AION_API_KEY"),
+    "aihorde": ("aihorde", "AIHORDE_API_KEY"),
+    "bazaarlink": ("bazaarlink", "BAZAARLINK_API_KEY"),
 }
 
 SAFE_FREE_TYPES = {
