@@ -28,12 +28,12 @@ DIRECT_KEY_URLS = {
     "ollama-cloud": "https://ollama.com/settings/keys",
     "cohere": "https://dashboard.cohere.com/api-keys",
     "zai-glm": "https://z.ai/manage-apikey/apikey-list",
-    "alibaba-model-studio": "https://bailian.console.aliyun.com/cn-beijing/model/settings/api-key",
+    "alibaba-model-studio": "https://modelstudio.console.alibabacloud.com/ap-southeast-1/settings/workspace",
     "cloudflare-workers-ai": "https://dash.cloudflare.com/profile/api-tokens",
     "cartesia": "https://play.cartesia.ai/dashboard",
     "elevenlabs": "https://elevenlabs.io/app/settings/api-keys",
     "huggingface": "https://huggingface.co/settings/tokens",
-    "siliconflow": "https://cloud.siliconflow.cn/account/ak",
+    "siliconflow": "https://cloud.siliconflow.com/account/ak",
     "nvidia-nim": "https://build.nvidia.com/settings/api-keys",
 }
 
@@ -77,7 +77,7 @@ def _providers() -> list[dict]:
         rows = con.execute(
             """SELECT slug,name,env_key,registration_url,docs_url,free_type,free_tier,
             openai_compatible,status FROM provider_candidates
-            WHERE status IN ('account_registered','key_saved') AND env_key IS NOT NULL
+            WHERE status IN ('account_required','account_registered','key_saved') AND env_key IS NOT NULL
             ORDER BY CASE WHEN openai_compatible=1 THEN 0 ELSE 1 END, name COLLATE NOCASE"""
         ).fetchall()
     return [
