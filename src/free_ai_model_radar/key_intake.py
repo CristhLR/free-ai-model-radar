@@ -176,6 +176,10 @@ def _page(token: str, message: str = "") -> str:
 <input class="key" type="password" name="key" autocomplete="off" spellcheck="false" required>
 <button type="submit">Guardar localmente</button>
 </form></article>''')
+    jev_saved = "TYPESAFE_API_KEY" in _load_env()
+    jev_state = "Guardada ✅" if jev_saved else "Pendiente"
+    jev_cls = "saved" if jev_saved else "pending"
+    cards.insert(0, f'''<article class="card {jev_cls}">\n<h3>TypeSafe / Jev</h3>\n<div class="meta">Router inteligente · <b>{jev_state}</b></div>\n<div class="tier">Decide cuándo usar fast, balanced, smart, verificación o fusion.</div>\n<a class="open" href="https://console.typesafe.ai" target="_blank" rel="noopener">1. Abrir TypeSafe Console ↗</a>\n<form method="post" action="/save">\n<input type="hidden" name="token" value="{token}">\n<input type="hidden" name="slug" value="typesafe-jev">\n<label>2. Pega la API key aquí</label>\n<input class="key" type="password" name="key" autocomplete="off" spellcheck="false" required>\n<button type="submit">Guardar localmente</button>\n</form></article>''')
     msg = f'<div class="message">{html.escape(message)}</div>' if message else ""
     return f'''<!doctype html><meta charset="utf-8"><title>Free AI Radar — Keys</title>
 <style>body{{font-family:system-ui,Segoe UI,Arial;max-width:1050px;margin:28px auto;padding:0 18px;background:#0f1115;color:#eee}}h1{{margin-bottom:4px}}.sub,.meta{{color:#aaa}}.grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(310px,1fr));gap:12px;margin-top:22px}}.card{{background:#181b21;border:1px solid #333;border-radius:12px;padding:15px}}.card.saved{{border-color:#2e704f}}.tier{{font-size:13px;margin:8px 0;min-height:36px}}.open,button{{display:inline-block;background:#2d6cdf;color:white;border:0;text-decoration:none;padding:8px 11px;border-radius:8px;cursor:pointer}}form{{margin-top:12px}}label{{display:block;font-size:13px;margin-bottom:5px}}.key{{box-sizing:border-box;width:100%;padding:9px;background:#101218;color:#fff;border:1px solid #444;border-radius:8px;margin-bottom:8px}}.message{{background:#173b29;border:1px solid #2e704f;padding:10px;border-radius:8px;margin-top:15px}}</style>
@@ -225,6 +229,13 @@ def run(port: int = PORT) -> None:
             slug = form.get("slug", [""])[0]
             key = form.get("key", [""])[0].strip()
             account_id = form.get("account_id", [""])[0].strip()
+            if slug == "typesafe-jev":
+                if len(key) < 8:
+                    self.send_panel("TypeSafe / Jev: la API key parece incompleta.")
+                    return
+                _save_secret("TYPESAFE_API_KEY", key)
+                self.send_panel("TypeSafe / Jev: API key guardada. Smart la usará en la próxima petición.")
+                return
             provider = next((p for p in _providers() if p["slug"] == slug), None)
             if not provider:
                 self.send_panel("Proveedor no reconocido. Recarga el panel e inténtalo de nuevo.")
