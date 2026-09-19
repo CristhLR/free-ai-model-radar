@@ -12,7 +12,7 @@ from pathlib import Path
 
 from .config import DB_PATH, ROOT
 from .db import connect
-from .freellmapi_sync import restart_freellmapi
+from .freellmapi_sync import PLATFORM_MAP, SAFE_FREE_TYPES, restart_freellmapi
 
 HOST = "127.0.0.1"
 PORT = 8765
@@ -85,6 +85,7 @@ def _providers() -> list[dict]:
             "openai": bool(r[7]), "status": r[8], "saved": r[2] in saved,
         }
         for r in rows
+        if r[0] in PLATFORM_MAP and r[5] in SAFE_FREE_TYPES
     ]
 
 
