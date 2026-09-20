@@ -70,7 +70,21 @@ class ModelPreferenceSelector:
         if features.has_tools:
             score += .12 if model.supports_tools else -1.
             if "thinking" in text:
-                score -= .12
+                score -= .18
+
+            explicit_code = domain == "coding" or features.code_signal >= .55
+            if not explicit_code and any(x in text for x in ("coder", "codestral")):
+                score -= .26
+
+            for marker, bonus in (
+                ("gemini", .16),
+                ("deepseek", .08),
+                ("glm", .06),
+                ("mimo", .05),
+                ("compound", .05),
+            ):
+                if marker in text:
+                    score += bonus
         if domain == "research" and model.context_window >= 200000:
             score += .10
         if domain == "vision" and model.supports_vision:

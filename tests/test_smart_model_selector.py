@@ -178,6 +178,34 @@ class SmartModelSelectorTests(unittest.TestCase):
         self.assertIsNone(plan.selected_model)
         self.assertTrue(plan.candidates)
 
+    def test_generic_agent_tools_penalize_coder_specialists(self):
+        selector = ModelPreferenceSelector(FakeCatalog([
+            model("qwen3-coder-480b", name="Qwen3 Coder", intelligence=1, speed=3),
+            model("gemini-3.7-flash", name="Gemini 3.7 Flash", intelligence=2, speed=4),
+            model("deepseek-v4-flash", name="DeepSeek V4 Flash", intelligence=2, speed=4),
+        ]))
+        tools = [{"type": "function", "function": {"name": "status", "parameters": {"type": "object"}}}]
+        plan = selector.select(
+            request("Review the current status and continue.", tools=tools),
+            decision("troubleshooting", complexity="hard", task_type="code"),
+        )
+        self.assertTrue(plan.apply)
+        self.assertNotEqual(plan.selected_model, "qwen3-coder-480b")
+        self.assertIn(plan.selected_model, {"gemini-3.7-flash", "deepseek-v4-flash"})
+
+    def test_explicit_coding_tools_can_still_choose_coder(self):
+        selector = ModelPreferenceSelector(FakeCatalog([
+            model("qwen3-coder-480b", name="Qwen3 Coder", intelligence=2, speed=5),
+            model("gemini-3.7-flash", name="Gemini 3.7 Flash", intelligence=2, speed=4),
+        ]))
+        tools = [{"type": "function", "function": {"name": "shell", "parameters": {"type": "object"}}}]
+        plan = selector.select(
+            request("Refactor this Python backend and add unit tests.", tools=tools),
+            decision("coding", complexity="hard", task_type="code"),
+        )
+        self.assertTrue(plan.apply)
+        self.assertEqual(plan.selected_model, "qwen3-coder-480b")
+
     def test_status_exposes_fail_open_metrics(self):
         selector = ModelPreferenceSelector(FakeCatalog([
             model("coder-model", name="Coder Model", intelligence=2),
