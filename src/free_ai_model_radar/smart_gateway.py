@@ -11,7 +11,7 @@ from .config import ROOT
 
 HOST = "127.0.0.1"
 PORT = 3002
-UPSTREAM = "http://127.0.0.1:3001"
+UPSTREAM = "http://127.0.0.1:31415"
 JEV_URL = "https://api.typesafe.ai/v1/systemone"
 MAX_OUTPUT_TOKENS = 4096
 

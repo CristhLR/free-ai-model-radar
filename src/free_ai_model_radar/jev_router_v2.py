@@ -30,13 +30,20 @@ def _load_local_env() -> None:
 
 
 def _post_jev(body: dict) -> dict:
-    repo = Path.home() / ".dsh" / "integrations" / "jev-ultrafast"
-    repo_text = str(repo)
-    if repo_text not in sys.path:
-        sys.path.insert(0, repo_text)
-    from jev_ultrafast.gateway_adapter import post_jev
+    import importlib.util
+    adapter = (
+        Path.home() / ".dsh" / "integrations" / "jev-ultrafast"
+        / "jev_ultrafast" / "gateway_adapter.py"
+    )
+    spec = importlib.util.spec_from_file_location(
+        "_jev_gateway_adapter", adapter
+    )
+    if spec is None or spec.loader is None:
+        raise RuntimeError("Jev gateway adapter could not be loaded")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
     _load_local_env()
-    return post_jev(body)
+    return module.post_jev(body)
 
 
 def _last_user_text(body: dict) -> str:
