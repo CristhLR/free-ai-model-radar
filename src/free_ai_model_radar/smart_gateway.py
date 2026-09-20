@@ -100,6 +100,11 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("X-Smart-Complexity", decision.complexity)
         self.send_header("X-Smart-Confidence", f"{decision.confidence:.4f}")
         self.send_header("X-Smart-Task-Type", decision.task_type)
+        if decision.jev_used:
+            self.send_header("X-Smart-Jev", "1")
+            self.send_header("X-Smart-Jev-Model", decision.jev_model)
+            self.send_header("X-Smart-Jev-Confidence", f"{decision.jev_domain_confidence:.4f}")
+            self.send_header("X-Smart-Jev-Latency-Ms", f"{decision.jev_latency_ms:.1f}")
         if plan:
             self.send_header("X-Smart-Selector", plan.mode)
             self.send_header("X-Smart-Selector-Confidence", f"{plan.confidence:.4f}")
@@ -142,7 +147,7 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         if self.path.rstrip("/") == "/smart/status":
             self._send_json(200, {
-                "engine": "hybrid-semantic-v2",
+                "engine": "hybrid-semantic-v2-jev",
                 "classifier": ENGINE.status(),
                 "selector": SELECTOR.status(),
             })

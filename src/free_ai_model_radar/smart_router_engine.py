@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from .config import ROOT
+from .smart_jev import JevJudge, JevJudgment
 
 EMBED_MODEL = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
 NLI_MODEL = "MoritzLaurer/multilingual-MiniLMv2-L6-mnli-xnli"
@@ -163,6 +164,11 @@ class Decision:
     nli_used: bool
     semantic_domain_score: float = 0.0
     semantic_margin: float = 0.0
+    jev_used: bool = False
+    jev_model: str = ""
+    jev_domain_confidence: float = 0.0
+    jev_complexity_confidence: float = 0.0
+    jev_latency_ms: float = 0.0
     prompt_hash: str = ""
 
     @property
@@ -398,6 +404,7 @@ class LocalSemanticModels:
 class SmartRouterEngine:
     def __init__(self, preload: bool = True) -> None:
         self.models = LocalSemanticModels()
+        self.jev = JevJudge()
         if preload:
             self.models.preload_async()
         self.lock = threading.RLock()
@@ -544,6 +551,90 @@ class SmartRouterEngine:
             level = "hard"
         return score, level, nli_used
 
+    def _should_use_jev(
+        self,
+        features: Features,
+        domain: str,
+        confidence: float,
+        difficulty: float,
+        semantic_margin: float,
+    ) -> bool:
+        if not self.jev.enabled or features.has_images:
+            return False
+        if self.jev.mode in {"always", "on"}:
+            return True
+        if features.fusion_signal >= 0.45 or features.verify_signal >= 0.45:
+            return False
+
+        _, rule_conf = self._rule_domain(features)
+        if rule_conf >= 0.90:
+            return False
+        if (
+            domain == "quick"
+            and difficulty < 0.34
+            and not features.has_tools
+            and len(features.last_user) < 140
+        ):
+            return False
+
+        if not self.models.semantic_ready or not self.models.nli_ready:
+            signal = max(
+                features.code_signal,
+                features.math_signal,
+                features.research_signal,
+            )
+            return features.has_tools or signal >= 0.30 or len(features.routing_text) >= 140
+
+        return (
+            confidence < 0.64
+            or (semantic_margin < 0.03 and confidence < 0.72)
+            or (features.has_tools and confidence < 0.72)
+        )
+
+    @staticmethod
+    def _complexity_from_score(score: float) -> str:
+        if score < 0.34:
+            return "simple"
+        if score < 0.68:
+            return "moderate"
+        return "hard"
+
+    def _apply_jev(
+        self,
+        features: Features,
+        domain: str,
+        confidence: float,
+        difficulty: float,
+        complexity: str,
+        semantic_margin: float,
+    ) -> tuple[str, float, float, str, JevJudgment | None]:
+        if not self._should_use_jev(
+            features, domain, confidence, difficulty, semantic_margin
+        ):
+            return domain, confidence, difficulty, complexity, None
+
+        judgment = self.jev.judge(features.routing_text)
+        if judgment is None:
+            return domain, confidence, difficulty, complexity, None
+
+        if judgment.domain_confidence >= 0.65:
+            domain = judgment.domain
+            confidence = max(
+                confidence,
+                min(0.90, 0.55 + 0.35 * judgment.domain_confidence),
+            )
+
+        if judgment.complexity_confidence >= 0.75:
+            target = {
+                "simple": 0.18,
+                "moderate": 0.52,
+                "hard": 0.86,
+            }[judgment.complexity]
+            difficulty = max(0.0, min(1.0, 0.65 * difficulty + 0.35 * target))
+            complexity = self._complexity_from_score(difficulty)
+
+        return domain, confidence, difficulty, complexity, judgment
+
     @staticmethod
     def _route_policy(features: Features, domain: str, difficulty: float) -> tuple[str, str]:
         if features.fusion_signal >= 0.45 and not features.has_tools:
@@ -570,6 +661,14 @@ class SmartRouterEngine:
         features = extract_features(body)
         domain, confidence, sem_score, sem_margin, nli_domain = self._choose_domain(features)
         difficulty, complexity, nli_difficulty = self._difficulty(features, domain)
+        domain, confidence, difficulty, complexity, jev = self._apply_jev(
+            features,
+            domain,
+            confidence,
+            difficulty,
+            complexity,
+            sem_margin,
+        )
         route, policy_reason = self._route_policy(features, domain, difficulty)
         task_type = "code" if domain in {"coding", "troubleshooting"} else "chat"
         if domain in {"vision", "data_analysis", "research", "reasoning"}:
@@ -579,6 +678,8 @@ class SmartRouterEngine:
         nli_used = nli_domain or nli_difficulty
         if nli_used:
             source += "-nli"
+        if jev is not None:
+            source += "-jev"
         prompt_hash = hashlib.sha256(features.routing_text.encode("utf-8")).hexdigest()[:16]
         decision = Decision(
             route=route,
@@ -592,6 +693,11 @@ class SmartRouterEngine:
             nli_used=nli_used,
             semantic_domain_score=round(sem_score, 4),
             semantic_margin=round(sem_margin, 4),
+            jev_used=jev is not None,
+            jev_model=jev.model if jev else "",
+            jev_domain_confidence=round(jev.domain_confidence, 4) if jev else 0.0,
+            jev_complexity_confidence=round(jev.complexity_confidence, 4) if jev else 0.0,
+            jev_latency_ms=round(jev.latency_ms, 1) if jev else 0.0,
             prompt_hash=prompt_hash,
         )
         with self.lock:
@@ -627,6 +733,11 @@ class SmartRouterEngine:
             "task_type": decision.task_type,
             "semantic_ready": decision.semantic_ready,
             "nli_used": decision.nli_used,
+            "jev_used": decision.jev_used,
+            "jev_model": decision.jev_model or None,
+            "jev_domain_confidence": decision.jev_domain_confidence,
+            "jev_complexity_confidence": decision.jev_complexity_confidence,
+            "jev_latency_ms": decision.jev_latency_ms,
             "status": status,
             "latency_ms": round(latency_ms, 1),
             "routed_via": routed_via,
@@ -651,10 +762,11 @@ class SmartRouterEngine:
             counts = dict(sorted(self.counts.items()))
             total = self.total_decisions
         return {
-            "engine": "hybrid-semantic-v1",
+            "engine": "hybrid-semantic-v2-jev",
             "total_decisions": total,
             "decisions": counts,
             "models": self.models.status(),
+            "jev": self.jev.status(),
             "telemetry": str(TELEMETRY_PATH),
         }
 

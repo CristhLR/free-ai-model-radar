@@ -29,9 +29,22 @@ class FakeModels:
         return {"semantic_ready": self.semantic_ready, "nli_ready": self.nli_ready}
 
 
+class DisabledJev:
+    enabled = False
+    mode = "off"
+
+    def judge(self, text):
+        return None
+
+    def status(self):
+        return {"enabled": False, "mode": "off"}
+
+
 class SmartRouterTests(unittest.TestCase):
     def engine(self):
-        return SmartRouterEngine(preload=False)
+        engine = SmartRouterEngine(preload=False)
+        engine.jev = DisabledJev()
+        return engine
 
     def test_short_simple_goes_fast(self):
         d = self.engine().decide(body("¿Qué es DNS?"))
