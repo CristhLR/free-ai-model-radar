@@ -47,6 +47,12 @@ class SmartRouterTests(unittest.TestCase):
         self.assertEqual(d.route, "auto:smart")
         self.assertEqual(d.task_type, "code")
 
+    def test_refactor_backend_is_coding(self):
+        d = self.engine().decide(body("Refactoriza este backend Python, corrige bugs y agrega pruebas unitarias."))
+        self.assertEqual(d.domain, "coding")
+        self.assertEqual(d.route, "auto:smart")
+        self.assertEqual(d.task_type, "code")
+
     def test_research_goes_smart(self):
         d = self.engine().decide(body("Investiga este tema a fondo y compara varias fuentes actuales."))
         self.assertEqual(d.domain, "research")
