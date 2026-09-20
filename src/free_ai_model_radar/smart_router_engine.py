@@ -610,6 +610,11 @@ class SmartRouterEngine:
         fallback_attempts: str | None = None,
         cache: str | None = None,
         compression: str | None = None,
+        selected_model: str | None = None,
+        selector_mode: str | None = None,
+        selector_confidence: float | None = None,
+        selector_fallback: bool = False,
+        candidate_models: list[str] | None = None,
     ) -> None:
         event = {
             "ts": int(time.time()),
@@ -628,6 +633,11 @@ class SmartRouterEngine:
             "fallback_attempts": fallback_attempts,
             "cache": cache,
             "compression": compression,
+            "selected_model": selected_model,
+            "selector_mode": selector_mode,
+            "selector_confidence": selector_confidence,
+            "selector_fallback": selector_fallback,
+            "candidate_models": (candidate_models or [])[:8],
         }
         try:
             TELEMETRY_PATH.parent.mkdir(parents=True, exist_ok=True)
