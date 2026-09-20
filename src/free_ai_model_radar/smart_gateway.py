@@ -1,134 +1,29 @@
 from __future__ import annotations
 
 import json
-import os
-import re
+import time
 import urllib.error
 import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from typing import Any
 
-from .config import ROOT
+from .smart_router_engine import Decision, get_router_engine
 
 HOST = "127.0.0.1"
 PORT = 3002
 UPSTREAM = "http://127.0.0.1:31415"
-JEV_URL = "https://api.typesafe.ai/v1/systemone"
 MAX_OUTPUT_TOKENS = 4096
+ENGINE = get_router_engine()
 
-def _secret(name: str) -> str | None:
-    value = os.environ.get(name)
-    if value:
-        return value.strip()
-    path = ROOT / ".env.local"
-    if not path.exists():
-        return None
-    for line in path.read_text(encoding="utf-8").splitlines():
-        if line.startswith(name + "="):
-            value = line.split("=", 1)[1].strip()
-            return value or None
-    return None
 
-def _last_user_text(body: dict) -> str:
-    for msg in reversed(body.get("messages") or []):
-        if msg.get("role") != "user":
-            continue
-        content = msg.get("content", "")
-        if isinstance(content, str):
-            return content
-        if isinstance(content, list):
-            parts = []
-            for item in content:
-                if isinstance(item, dict) and item.get("type") == "text":
-                    parts.append(str(item.get("text", "")))
-            return " ".join(parts)
-    return ""
-
-def _heuristic_route(body: dict) -> tuple[str, str]:
-    text = _last_user_text(body)
-    low = text.lower()
-    has_tools = bool(body.get("tools"))
-    code = bool(re.search(r"\b(function|class|def |traceback|exception|\.py\b|\.ts\b|\.js\b)", text, re.I))
-    hard = any(k in low for k in (
-        "investiga", "research", "analiza", "debug", "arquitectura",
-        "compara", "verifica", "security", "vulnerab", "optimiza"
-    ))
-    if has_tools:
-        return ("auto:smart" if hard or code else "auto:balanced", "heuristic-tools")
-    if len(text) < 280 and not hard and not code:
-        return "auto:fast", "heuristic-fast"
-    if hard or code or len(text) > 1800:
-        return "auto:smart", "heuristic-smart"
-    return "auto:balanced", "heuristic-balanced"
-
-def _jev_route(body: dict) -> tuple[str, str] | None:
-    key = _secret("TYPESAFE_API_KEY")
-    if not key:
-        return None
-    text = _last_user_text(body)[:2500]
-    state = json.dumps({
-        "request": text,
-        "has_tools": bool(body.get("tools")),
-        "message_count": len(body.get("messages") or []),
-    }, ensure_ascii=False)
-    questions = {
-        "route": {
-            "type": "choice",
-            "instructions": "Choose the cheapest routing mode that is still sufficient for a high-quality answer.",
-            "criteria": {
-                "fast": "Simple low-risk request; one fast model is enough.",
-                "balanced": "Normal request; one balanced model is enough.",
-                "smart": "Difficult reasoning, coding, research, or analysis; use the strongest single free model.",
-                "verify": "Independent second opinion materially improves reliability; use two models without a judge.",
-                "fusion": "Only for unusually difficult work where synthesis of two independent answers is worth an extra judge call."
-            }
-        },
-        "needs_verification": {
-            "type": "noul",
-            "instructions": "Would an independent second model materially reduce the risk of a wrong answer?"
-        }
-    }
-    payload = json.dumps({
-        "state": state,
-        "model": "jev-latest",
-        "questions": questions,
-    }).encode("utf-8")
-
-    req = urllib.request.Request(
-        JEV_URL,
-        data=payload,
-        headers={
-            "Authorization": "Bearer " + key,
-            "Content-Type": "application/json",
-        },
-        method="POST",
-    )
-    try:
-        with urllib.request.urlopen(req, timeout=4) as resp:
-            data = json.load(resp)
-    except Exception:
-        return None
-    answers = data.get("answers") or {}
-    route_answer = answers.get("route") or {}
-    choice = route_answer.get("choice")
-    confidence = float(route_answer.get("confidence") or 0)
-    verify = float((answers.get("needs_verification") or {}).get("noul") or 0)
-
-    if choice == "fusion" and confidence >= 0.75 and not body.get("tools"):
-        return "fusion:synthesize", f"jev-fusion-{confidence:.2f}"
-    if (choice == "verify" or verify >= 0.82) and not body.get("tools"):
-        return "fusion:best_of", f"jev-verify-{max(confidence, verify):.2f}"
-    if choice == "smart":
-        return "auto:smart", f"jev-smart-{confidence:.2f}"
-    if choice == "fast":
-        return "auto:fast", f"jev-fast-{confidence:.2f}"
-    return "auto:balanced", f"jev-balanced-{confidence:.2f}"
-
-def _prepare(body: dict) -> tuple[dict, str]:
+def _prepare(body: dict[str, Any]) -> tuple[dict[str, Any], Decision | None]:
     out = dict(body)
     requested = str(out.get("model") or "smart")
     if requested != "smart":
-        return out, "passthrough"
-    route, reason = _jev_route(out) or _heuristic_route(out)
+        return out, None
+
+    decision = ENGINE.decide(out)
+    route = decision.route
     if route == "fusion:best_of":
         out["model"] = "fusion"
         out["fusion"] = {"k": 2, "strategy": "best_of", "expose_panel": False}
@@ -138,10 +33,12 @@ def _prepare(body: dict) -> tuple[dict, str]:
     else:
         out["model"] = route
         out.pop("fusion", None)
+
     current = out.get("max_tokens")
     if current is None or int(current) > MAX_OUTPUT_TOKENS:
         out["max_tokens"] = MAX_OUTPUT_TOKENS
-    return out, reason + ":" + route
+    return out, decision
+
 
 class Handler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
@@ -149,18 +46,39 @@ class Handler(BaseHTTPRequestHandler):
     def log_message(self, fmt, *args):
         return
 
-    def _headers(self) -> dict[str, str]:
+    def _headers(self, task_type: str | None = None) -> dict[str, str]:
         headers = {
-            "Content-Type": self.headers.get(
-                "Content-Type", "application/json"
-            )
+            "Content-Type": self.headers.get("Content-Type", "application/json")
         }
         auth = self.headers.get("Authorization")
         if auth:
             headers["Authorization"] = auth
+        if task_type:
+            headers["X-FreeLLM-Task-Type"] = task_type
         return headers
 
+    def _send_json(self, status: int, data: dict[str, Any]) -> None:
+        raw = json.dumps(data, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(raw)))
+        self.end_headers()
+        self.wfile.write(raw)
+
+    def _smart_headers(self, decision: Decision | None) -> None:
+        if decision is None:
+            return
+        self.send_header("X-Smart-Route", decision.header_value)
+        self.send_header("X-Smart-Domain", decision.domain)
+        self.send_header("X-Smart-Complexity", decision.complexity)
+        self.send_header("X-Smart-Confidence", f"{decision.confidence:.4f}")
+        self.send_header("X-Smart-Task-Type", decision.task_type)
+
     def do_GET(self):
+        if self.path.rstrip("/") == "/smart/status":
+            self._send_json(200, ENGINE.status())
+            return
+
         target = UPSTREAM + self.path
         req = urllib.request.Request(target, headers=self._headers())
         try:
@@ -170,8 +88,8 @@ class Handler(BaseHTTPRequestHandler):
                     data = json.loads(raw)
                     models = data.setdefault("data", [])
                     if not any(
-                        isinstance(x, dict) and x.get("id") == "smart"
-                        for x in models
+                        isinstance(item, dict) and item.get("id") == "smart"
+                        for item in models
                     ):
                         models.insert(0, {
                             "id": "smart",
@@ -202,28 +120,36 @@ class Handler(BaseHTTPRequestHandler):
         try:
             body = json.loads(raw or b"{}")
         except json.JSONDecodeError:
-            self.send_error(400)
+            self._send_json(400, {"error": {"message": "Invalid JSON", "type": "invalid_request_error"}})
+            return
+
+        if self.path.rstrip("/") == "/smart/classify":
+            decision = ENGINE.decide(body)
+            self._send_json(200, decision.public_dict())
             return
 
         prepared, decision = _prepare(body)
-        payload = json.dumps(
-            prepared, separators=(",", ":")
-        ).encode("utf-8")
+        payload = json.dumps(prepared, separators=(",", ":")).encode("utf-8")
+        task_type = decision.task_type if decision else None
         req = urllib.request.Request(
             UPSTREAM + self.path,
             data=payload,
-            headers=self._headers(),
+            headers=self._headers(task_type),
             method="POST",
         )
+        started = time.perf_counter()
 
         try:
             with urllib.request.urlopen(req, timeout=180) as resp:
-                ctype = resp.headers.get(
-                    "Content-Type", "application/json"
-                )
+                ctype = resp.headers.get("Content-Type", "application/json")
+                routed_via = resp.headers.get("X-Routed-Via")
+                fallback_attempts = resp.headers.get("X-Fallback-Attempts")
+                cache = resp.headers.get("X-FreeLLM-Cache")
+                compression = resp.headers.get("X-FreeLLM-Compress")
+
                 self.send_response(resp.status)
                 self.send_header("Content-Type", ctype)
-                self.send_header("X-Smart-Route", decision)
+                self._smart_headers(decision)
                 for name in (
                     "X-Routed-Via",
                     "X-FreeLLM-Cache",
@@ -246,11 +172,20 @@ class Handler(BaseHTTPRequestHandler):
                     self.close_connection = True
                 else:
                     data = resp.read()
-                    self.send_header(
-                        "Content-Length", str(len(data))
-                    )
+                    self.send_header("Content-Length", str(len(data)))
                     self.end_headers()
                     self.wfile.write(data)
+
+                if decision:
+                    ENGINE.record_result(
+                        decision,
+                        status=resp.status,
+                        latency_ms=(time.perf_counter() - started) * 1000,
+                        routed_via=routed_via,
+                        fallback_attempts=fallback_attempts,
+                        cache=cache,
+                        compression=compression,
+                    )
 
         except urllib.error.HTTPError as exc:
             data = exc.read()
@@ -259,30 +194,40 @@ class Handler(BaseHTTPRequestHandler):
                 "Content-Type",
                 exc.headers.get("Content-Type", "application/json"),
             )
-            self.send_header("X-Smart-Route", decision)
+            self._smart_headers(decision)
             self.send_header("Content-Length", str(len(data)))
             self.end_headers()
             self.wfile.write(data)
+            if decision:
+                ENGINE.record_result(
+                    decision,
+                    status=exc.code,
+                    latency_ms=(time.perf_counter() - started) * 1000,
+                    routed_via=exc.headers.get("X-Routed-Via"),
+                    fallback_attempts=exc.headers.get("X-Fallback-Attempts"),
+                    cache=exc.headers.get("X-FreeLLM-Cache"),
+                    compression=exc.headers.get("X-FreeLLM-Compress"),
+                )
         except Exception as exc:
-            data = json.dumps({
+            data = {
                 "error": {
                     "message": f"smart gateway upstream error: {type(exc).__name__}",
                     "type": "gateway_error",
                 }
-            }).encode("utf-8")
-            self.send_response(502)
-            self.send_header("Content-Type", "application/json")
-            self.send_header("X-Smart-Route", decision)
-            self.send_header("Content-Length", str(len(data)))
-            self.end_headers()
-            self.wfile.write(data)
+            }
+            if decision:
+                ENGINE.record_result(
+                    decision,
+                    status=502,
+                    latency_ms=(time.perf_counter() - started) * 1000,
+                )
+            self._send_json(502, data)
+
 
 def run() -> None:
-    print(
-        f"SMART_GATEWAY_READY http://{HOST}:{PORT}/v1",
-        flush=True,
-    )
+    print(f"SMART_GATEWAY_READY http://{HOST}:{PORT}/v1", flush=True)
     ThreadingHTTPServer((HOST, PORT), Handler).serve_forever()
+
 
 if __name__ == "__main__":
     run()
