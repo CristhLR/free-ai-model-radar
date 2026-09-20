@@ -228,8 +228,8 @@ def extract_features(body: dict[str, Any]) -> Features:
         r"\b(traceback|exception|stack trace|compiler|runtime error|bug)\b",
         r"\.(py|js|ts|tsx|jsx|java|cpp|cs|go|rs|sql|kt|swift)\b",
         r"\b(api|endpoint|repository|repo|git|docker|kubernetes|regex)\b",
-        r"\\b(python|javascript|typescript|backend|frontend)\\b",
-        r"\\b(refactor(?:iza|izar)?|implementa|corrige|debug|fix|unit tests?|pruebas unitarias)\\b",
+        r"\b(python|javascript|typescript|backend|frontend)\b",
+        r"\b(refactor(?:iza|izar)?|implementa|corrige|debug|fix|unit tests?|pruebas unitarias)\b",
     ]
     math_patterns = [
         r"\b(prove|proof|derive|theorem|integral|derivative|matrix|probability)\b",
