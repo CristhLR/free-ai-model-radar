@@ -263,14 +263,20 @@ class Handler(BaseHTTPRequestHandler):
                         chunk = resp.read(4096)
                         if not chunk:
                             break
-                        self.wfile.write(chunk)
-                        self.wfile.flush()
+                        try:
+                            self.wfile.write(chunk)
+                            self.wfile.flush()
+                        except (BrokenPipeError, ConnectionAbortedError, ConnectionResetError):
+                            break
                     self.close_connection = True
                 else:
                     data = resp.read()
                     self.send_header("Content-Length", str(len(data)))
                     self.end_headers()
-                    self.wfile.write(data)
+                    try:
+                        self.wfile.write(data)
+                    except (BrokenPipeError, ConnectionAbortedError, ConnectionResetError):
+                        pass
 
                 self._record(
                     decision, plan,
